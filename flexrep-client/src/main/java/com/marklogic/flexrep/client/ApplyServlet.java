@@ -36,11 +36,10 @@ public class ApplyServlet extends HttpServlet {
 	private boolean isProcessingContent = false;
 	private String currentUpdateFormat = null;
 	private String currentUri = null;
-	
-	private static NamespaceContext CONTEXT = new NamespaceContextMap(
-	        "doc", "xdmp:document-load",
-	        "flexrep", "http://marklogic.com/xdmp/flexible-replication");
 
+	private static NamespaceContext CONTEXT = new NamespaceContextMap("doc",
+			"xdmp:document-load", "flexrep",
+			"http://marklogic.com/xdmp/flexible-replication");
 
 	/**
 	 * Default constructor.
@@ -87,6 +86,7 @@ public class ApplyServlet extends HttpServlet {
 			// IOUtils.copy(bodyReader, writer);
 			// System.out.println("body="+writer.toString());
 			// byte[] body = request.
+
 			System.out.println("boundary=" + boundary);
 			System.out.println("domainId=" + domainId);
 			System.out.println("domainName=" + domainName);
@@ -96,9 +96,9 @@ public class ApplyServlet extends HttpServlet {
 
 			InputStream in = request.getInputStream();
 
-			StringBuilder line = new StringBuilder();			
+			StringBuilder line = new StringBuilder();
 			int ch = 0;
-			boolean reading = false;			
+			boolean reading = false;
 			while ((ch = in.read()) != -1) {
 				line.append((char) ch);
 				// End of line
@@ -109,11 +109,14 @@ public class ApplyServlet extends HttpServlet {
 						processLine(line.toString());
 						if (isProcessingContent) {
 							if (currentUri == null)
-							out = new FileOutputStream("c:\\Temp\\out.xlsx");
+								out = new FileOutputStream("c:\\Temp\\out.xlsx");
+
 							else {
-								String fullPath = "c:\\Temp\\" + formatUri(currentUri);
-								File file = new File(fullPath.substring(0, fullPath.lastIndexOf("\\")));
-								file.mkdirs();								
+								String fullPath = "c:\\Temp\\"
+										+ formatUri(currentUri);
+								File file = new File(fullPath.substring(0,
+										fullPath.lastIndexOf("\\")));
+								file.mkdirs();
 								out = new FileOutputStream(fullPath);
 							}
 							readContent(in, out);
@@ -143,8 +146,10 @@ public class ApplyServlet extends HttpServlet {
 		try {
 			XPath xpath = XPathFactory.newInstance().newXPath();
 			xpath.setNamespaceContext(CONTEXT);
-			currentUpdateFormat = xpath.compile("/flexrep:update/doc:format").evaluate(new InputSource(new StringReader(xml)));
-			currentUri = xpath.compile("/flexrep:update/doc:uri").evaluate(new InputSource(new StringReader(xml)));
+			currentUpdateFormat = xpath.compile("/flexrep:update/doc:format")
+					.evaluate(new InputSource(new StringReader(xml)));
+			currentUri = xpath.compile("/flexrep:update/doc:uri").evaluate(
+					new InputSource(new StringReader(xml)));
 		} catch (Exception e) {
 			e.printStackTrace(System.out);
 		}
