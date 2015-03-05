@@ -15,5 +15,22 @@
 	<classpathentry kind="lib" path="src/test/resources"/>
 	<classpathentry kind="lib" path="lib/marklogic-xcc-7.0.4.jar" sourcepath="C:/dev/lib-source-code/ml-xcc-7.0-4"/>
 	<classpathentry kind="lib" path="lib/marklogic-xcc-examples-7.0.4.jar" sourcepath="C:/dev/lib-source-code/ml-xcc-7.0-4-examples"/>
+	<classpathentry kind="lib" path="lib/ml-java-api/commons-codec-1.7.jar"/>
+	<classpathentry kind="lib" path="lib/ml-java-api/commons-logging-1.1.1.jar"/>
+	<classpathentry kind="lib" path="lib/ml-java-api/httpclient-4.1.1.jar"/>
+	<classpathentry kind="lib" path="lib/ml-java-api/httpcore-4.1.jar"/>
+	<classpathentry kind="lib" path="lib/ml-java-api/jackson-annotations-2.4.1.jar"/>
+	<classpathentry kind="lib" path="lib/ml-java-api/jackson-core-2.4.1.jar"/>
+	<classpathentry kind="lib" path="lib/ml-java-api/jackson-databind-2.4.1.jar"/>
+	<classpathentry kind="lib" path="lib/ml-java-api/java-client-api-3.0.1.jar"/>
+	<classpathentry kind="lib" path="lib/ml-java-api/jersey-apache-client4-1.17.jar"/>
+	<classpathentry kind="lib" path="lib/ml-java-api/jersey-client-1.17.jar"/>
+	<classpathentry kind="lib" path="lib/ml-java-api/jersey-core-1.17.jar"/>
+	<classpathentry kind="lib" path="lib/ml-java-api/jersey-multipart-1.17.jar"/>
+	<classpathentry kind="lib" path="lib/ml-java-api/logback-classic-1.1.2.jar"/>
+	<classpathentry kind="lib" path="lib/ml-java-api/logback-core-1.1.2.jar"/>
+	<classpathentry kind="lib" path="lib/ml-java-api/mimepull-1.6.jar"/>
+	<classpathentry kind="lib" path="lib/ml-java-api/mimepull-1.9.4.jar"/>
+	<classpathentry kind="lib" path="lib/ml-java-api/slf4j-api-1.7.4.jar"/>
 	<classpathentry kind="output" path="web/WEB-INF/classes"/>
 </classpath>
