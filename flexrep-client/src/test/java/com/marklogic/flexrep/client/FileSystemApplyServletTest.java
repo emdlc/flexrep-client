@@ -3,6 +3,7 @@ package com.marklogic.flexrep.client;
 import static org.junit.Assert.fail;
 
 import java.io.IOException;
+import java.util.Date;
 import java.util.Properties;
 import java.util.logging.Logger;
 
@@ -15,6 +16,8 @@ import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
+import ch.qos.logback.classic.Level;
+
 import com.marklogic.xcc.Content;
 import com.marklogic.xcc.ContentCreateOptions;
 import com.marklogic.xcc.ContentFactory;
@@ -25,6 +28,9 @@ public class FileSystemApplyServletTest {
 			.getLogger(FileSystemApplyServletTest.class.getName());
 
 	private static final String NON_CHUNKING_FILENAME = "/canyon-single.jpg";
+
+	private static final String NON_CHUNKING_FILENAME_URI = "/tmp"
+			+ NON_CHUNKING_FILENAME;
 
 	private static Properties testingProperties = null;
 
@@ -55,21 +61,38 @@ public class FileSystemApplyServletTest {
 
 			insertNonChunkingBinary();
 
-			// TODO: Check to confirm the file was written and replicated
+			Thread.sleep(2000);
 			assertBinaryWrittenAndReplicatedPerMaster();
 			// TODO: Check the destination tomcat to see if it fired (TBC on
 			// tomcat)
 			// TODO: Verify the file was written to filesystem
 			// TODO: Checksum on file to make sure it went over successfully
-		} catch (FileSystemApplyInsertException e) {
+		} catch (FileSystemApplyInsertException | InterruptedException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
 
 	private void assertBinaryWrittenAndReplicatedPerMaster() {
-		// TODO Auto-generated method stub
+		try {
+			Assert.assertEquals("true", xccHelper.executeXquery(String.format(
+					"xdmp:exists(fn:doc(\"%s\"))", NON_CHUNKING_FILENAME_URI)));
+			String iso8601DateString = xccHelper.executeXquery(String.format(
+					"xdmp:document-properties(\"%s\")//*:last-success/text()",
+					NON_CHUNKING_FILENAME_URI));
 
+			Date successDate = javax.xml.bind.DatatypeConverter.parseDateTime(
+					iso8601DateString).getTime();
+			double deltaInSeconds = ((new Date()).getTime() - successDate
+					.getTime()) / 1000d;
+			logger.info("last success date=" + iso8601DateString);
+			logger.info("delta in seconds=" + deltaInSeconds);
+			Assert.assertTrue("FlexRep Last Success is NOT recent",
+					deltaInSeconds < 10d);
+
+		} catch (XccHelperException e) {
+			Assert.fail(e.getMessage());
+		}
 	}
 
 	@After
@@ -103,8 +126,8 @@ public class FileSystemApplyServletTest {
 		try {
 			ContentCreateOptions options = new ContentCreateOptions();
 			options.setFormatBinary();
-			Content content = ContentFactory.newContent("/tmp"
-					+ NON_CHUNKING_FILENAME,
+			Content content = ContentFactory.newContent(
+					NON_CHUNKING_FILENAME_URI,
 					Utils.getClasspathContentAsStream(NON_CHUNKING_FILENAME),
 					options);
 			xccHelper.insertBinary(content);
