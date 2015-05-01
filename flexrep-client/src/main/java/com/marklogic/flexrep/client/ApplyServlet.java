@@ -29,6 +29,7 @@ maxRequestSize = 1024 * 1024 * 50)
 // 50MB
 public class ApplyServlet extends HttpServlet {
 	private static final long serialVersionUID = 1L;
+	private static final boolean isWindowsClient = false;
 
 	private String currentDesignation = null;
 	private String currentContentType = null;
@@ -108,14 +109,30 @@ public class ApplyServlet extends HttpServlet {
 					if (reading) {
 						processLine(line.toString());
 						if (isProcessingContent) {
-							if (currentUri == null)
-								out = new FileOutputStream("c:\\Temp\\out.xlsx");
-
+							if (currentUri == null) {
+								if(isWindowsClient) {
+									out = new FileOutputStream("c:\\Temp\\out.xlsx");
+								} else {
+									out = new FileOutputStream("/temp/out.xlsx");
+								}
+							}
 							else {
-								String fullPath = "c:\\Temp\\"
-										+ formatUri(currentUri);
+								String fullPath;
+								if(isWindowsClient) {
+									fullPath = "c:\\Temp\\"
+											+ formatUri(currentUri);									
+								} else {
+									fullPath = "/temp/" + formatUri(currentUri);
+								}
+
+								String lastIndexString;
+								if(isWindowsClient) {
+									lastIndexString = "\\";
+								} else {
+									lastIndexString = "/";
+								}
 								File file = new File(fullPath.substring(0,
-										fullPath.lastIndexOf("\\")));
+										fullPath.lastIndexOf(lastIndexString)));
 								file.mkdirs();
 								out = new FileOutputStream(fullPath);
 							}
@@ -135,11 +152,16 @@ public class ApplyServlet extends HttpServlet {
 		} finally {
 			out.flush();
 			out.close();
+			//currentUri = null;
 		}
 	}
 
 	private static String formatUri(String currentUri) {
-		return currentUri.replaceAll("/", "\\\\");
+		if(isWindowsClient) {
+			return currentUri.replaceAll("/", "\\\\");
+		} else {
+			return currentUri;
+		}
 	}
 
 	private void processXml(String xml) {
