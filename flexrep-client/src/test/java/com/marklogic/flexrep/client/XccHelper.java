@@ -49,4 +49,14 @@ public class XccHelper {
 		}
 	}
 
+	public void insertXml(Content content) throws XccHelperException {
+		contentSource.setAuthenticationPreemptive(true);
+		Session session = contentSource.newSession();
+		try {
+			session.insertContent(content);
+		} catch (RequestException e) {
+			throw new XccHelperException(e);
+		}
+	}
+
 }
