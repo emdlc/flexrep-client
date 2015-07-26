@@ -104,7 +104,6 @@ public class FileSystemApplyServletTest {
 
 			assertXmlWrittenToFileSystem();
 			
-			//TODO: make this test pass
 			assertXmlFileHasValidChecksum();
 			
 			//TODO: not yet implemented
@@ -159,9 +158,9 @@ public class FileSystemApplyServletTest {
 			is2 = new FileInputStream(file);
 			byte[] bytes2 = IOUtils.toByteArray(is2);
 			
-			checksum = new CRC32();
-			checksum.update(bytes2, 0, bytes2.length);
-			long fileSystemChecksumValue = checksum.getValue();
+			Checksum checksum2 = new CRC32();
+			checksum2.update(bytes2, 0, bytes2.length);
+			long fileSystemChecksumValue = checksum2.getValue();
 			logger.info("Checksum2 = " + fileSystemChecksumValue);
 			
 			Assert.assertEquals("Checksums are not equal", resourceChecksumValue, fileSystemChecksumValue);
