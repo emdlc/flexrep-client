@@ -1,6 +1,7 @@
 package com.marklogic.flexrep.client;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -17,6 +18,7 @@ import javax.xml.namespace.NamespaceContext;
 import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathFactory;
 
+import org.apache.commons.io.IOUtils;
 import org.xml.sax.InputSource;
 
 /**
@@ -25,8 +27,7 @@ import org.xml.sax.InputSource;
 @WebServlet("/apply.xqy")
 @MultipartConfig(fileSizeThreshold = 1024 * 1024 * 2, // 2MB
 maxFileSize = 1024 * 1024 * 10, // 10MB
-maxRequestSize = 1024 * 1024 * 50)
-// 50MB
+maxRequestSize = 1024 * 1024 * 50) // 50MB
 public class ApplyServlet extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 	private static final boolean isWindowsClient = false;
@@ -47,6 +48,7 @@ public class ApplyServlet extends HttpServlet {
 	 */
 	public ApplyServlet() {
 		// TODO Auto-generated constructor stub
+		System.out.println("ApplyServlet()");
 	}
 
 	/**
@@ -88,6 +90,7 @@ public class ApplyServlet extends HttpServlet {
 			// System.out.println("body="+writer.toString());
 			// byte[] body = request.
 
+			System.out.println("currentUri=" + currentUri);
 			System.out.println("boundary=" + boundary);
 			System.out.println("domainId=" + domainId);
 			System.out.println("domainName=" + domainName);
@@ -96,7 +99,7 @@ public class ApplyServlet extends HttpServlet {
 			System.out.println("contentType=" + request.getContentType());
 
 			InputStream in = request.getInputStream();
-
+			
 			StringBuilder line = new StringBuilder();
 			int ch = 0;
 			boolean reading = false;
@@ -110,6 +113,7 @@ public class ApplyServlet extends HttpServlet {
 						processLine(line.toString());
 						if (isProcessingContent) {
 							if (currentUri == null) {
+								//TODO: this is a bug. Should NOT be writing at this point
 								if(isWindowsClient) {
 									out = new FileOutputStream("c:\\Temp\\out.xlsx");
 								} else {
@@ -125,15 +129,7 @@ public class ApplyServlet extends HttpServlet {
 									fullPath = "/temp/" + formatUri(currentUri);
 								}
 
-								String lastIndexString;
-								if(isWindowsClient) {
-									lastIndexString = "\\";
-								} else {
-									lastIndexString = "/";
-								}
-								File file = new File(fullPath.substring(0,
-										fullPath.lastIndexOf(lastIndexString)));
-								file.mkdirs();
+								createDirectory(fullPath);
 								out = new FileOutputStream(fullPath);
 							}
 							readContent(in, out);
@@ -152,7 +148,9 @@ public class ApplyServlet extends HttpServlet {
 		} finally {
 			out.flush();
 			out.close();
-			//currentUri = null;
+			currentUri = null;
+			currentUpdateFormat = null;
+			//isProcessingContent = false;
 		}
 	}
 
@@ -175,7 +173,6 @@ public class ApplyServlet extends HttpServlet {
 		} catch (Exception e) {
 			e.printStackTrace(System.out);
 		}
-
 	}
 
 	private void processLine(String line) {
@@ -215,6 +212,7 @@ public class ApplyServlet extends HttpServlet {
 			if ("update".equals(currentDesignation)) {
 				String update = new String(bytes, "UTF-8");
 				processXml(update.trim());
+				writeProperties(bytes, sizeRead);
 			}
 			if (!"document".equals(currentDesignation)) {
 				String update = new String(bytes, "UTF-8");
@@ -224,6 +222,41 @@ public class ApplyServlet extends HttpServlet {
 			e.printStackTrace(System.out);
 		}
 		isProcessingContent = false;
+	}
+	
+	private void writeProperties(byte[] properties, Integer size) throws IOException {
+		String fullPath;
+		FileOutputStream out = null;
+		if(isWindowsClient) {
+			fullPath = "c:\\Temp\\"
+					+ formatUri(currentUri);									
+		} else {
+			fullPath = "/temp/" + formatUri(currentUri) + ".metadata";
+		}
+		try {
+			createDirectory(fullPath);
+			out = new FileOutputStream(fullPath);
+			out.write(properties, 0, size);
+		} catch ( IOException e) {
+			e.printStackTrace(System.out);
+		}
+		finally {
+			out.flush();
+			out.close();
+		}
+	}
+	
+	private void createDirectory(String fullPath) {
+		String lastIndexString;
+		if(isWindowsClient) {
+			lastIndexString = "\\";
+		} else {
+			lastIndexString = "/";
+		}
+		System.out.println("Create Directory Path:"+fullPath);
+		File file = new File(fullPath.substring(0,
+				fullPath.lastIndexOf(lastIndexString)));
+		file.mkdirs();
 	}
 
 }
