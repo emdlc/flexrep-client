@@ -227,6 +227,32 @@ public class FileSystemApplyServletTest {
 	public void testChunkingReplication() {
 		fail("Chunking Replication NOT yet implemented");
 	}
+	
+	@Test
+	public void testLargeBinaryReplication() {
+
+		try {
+			assertTomcatFlexRepReplicaIsAlive();
+			assertMarkLogicIsAlive();
+
+			String filename = NON_CHUNKING_BINARY_1_2MB;
+			insertNonChunkingBinary(filename);
+
+			Thread.sleep(2000);
+			assertFileWrittenAndReplicatedPerMaster(filename);
+			// TODO: Check the destination tomcat to see if it fired (TBC on
+			// tomcat)  // check access log for a 200 response with a timestamp of last 20 secs
+
+			String ML_URI = FLEX_REP_ROOT + filename;
+			assertFileWrittenToFileSystem(ML_URI);
+
+			assertFileHasValidChecksum(filename);
+			
+		} catch (FileSystemApplyInsertException | InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
 
 	private void assertTargetTomcatLoggedPost() {
 		// TODO: Check the destination tomcat to see if it fired (TBC on tomcat)  
