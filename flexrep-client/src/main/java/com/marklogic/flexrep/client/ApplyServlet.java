@@ -1,12 +1,12 @@
 package com.marklogic.flexrep.client;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.StringReader;
+import java.util.Properties;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.MultipartConfig;
@@ -18,7 +18,7 @@ import javax.xml.namespace.NamespaceContext;
 import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathFactory;
 
-import org.apache.commons.io.IOUtils;
+import org.apache.tomcat.util.codec.binary.Base64;
 import org.xml.sax.InputSource;
 
 /**
@@ -39,6 +39,8 @@ public class ApplyServlet extends HttpServlet {
 	private String currentUpdateFormat = null;
 	private String currentUri = null;
 
+	private static XccHelper xccHelper = null;
+	
 	private static NamespaceContext CONTEXT = new NamespaceContextMap("doc",
 			"xdmp:document-load", "flexrep",
 			"http://marklogic.com/xdmp/flexible-replication");
@@ -47,8 +49,18 @@ public class ApplyServlet extends HttpServlet {
 	 * Default constructor.
 	 */
 	public ApplyServlet() {
+		super();
 		// TODO Auto-generated constructor stub
 		System.out.println("ApplyServlet()");
+		
+		if (xccHelper == null)
+			try {
+				//TODO: need to make this configurable
+				xccHelper = new XccHelper("xcc://admin:admin@localhost:9001/Master");
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 	}
 
 	/**
@@ -68,6 +80,7 @@ public class ApplyServlet extends HttpServlet {
 	 */
 	protected void doPost(HttpServletRequest request,
 			HttpServletResponse response) throws ServletException, IOException {
+
 		FileOutputStream out = null;
 		String boundary = null;
 		String contentType = request.getHeader("content-type");
@@ -84,11 +97,10 @@ public class ApplyServlet extends HttpServlet {
 		String targetName = request.getHeader("X-Flexrep-Target-Name");
 
 		try {
-			// BufferedReader bodyReader = request.getReader();
-			// StringWriter writer = new StringWriter();
-			// IOUtils.copy(bodyReader, writer);
-			// System.out.println("body="+writer.toString());
-			// byte[] body = request.
+//			 BufferedReader bodyReader = request.get.getReader();
+//			 StringWriter writer = new StringWriter();
+//			 IOUtils.copy(bodyReader, writer);
+//			 System.out.println("body="+writer.toString());
 
 			System.out.println("currentUri=" + currentUri);
 			System.out.println("boundary=" + boundary);
@@ -142,7 +154,12 @@ public class ApplyServlet extends HttpServlet {
 
 				}
 			}
-
+			
+			if(currentUpdateFormat.equals("binary")) {
+				System.out.println("writeBinary: " + currentUri);
+				writeBinary(currentUri);
+			}
+			
 		} catch (Exception e) {
 			e.printStackTrace(System.out);
 		} finally {
@@ -150,7 +167,6 @@ public class ApplyServlet extends HttpServlet {
 			out.close();
 			currentUri = null;
 			currentUpdateFormat = null;
-			//isProcessingContent = false;
 		}
 	}
 
@@ -224,6 +240,35 @@ public class ApplyServlet extends HttpServlet {
 		isProcessingContent = false;
 	}
 	
+	private void writeBinary(String binaryURI) throws XccHelperException, IOException {
+		// TODO Auto-generated method stub
+		String xquery = "xs:base64Binary(doc('"+binaryURI+"'))";
+		String response = xccHelper.executeXquery(xquery);
+
+			byte[] data = Base64.decodeBase64(response);
+			System.out.println("decoded length: "+data.length);
+			
+			String fullPath;
+			FileOutputStream out = null;
+			if(isWindowsClient) {
+				fullPath = "c:\\Temp\\"
+						+ formatUri(binaryURI);									
+			} else {
+				fullPath = "/temp/" + formatUri(binaryURI);
+			}
+			try {
+				createDirectory(fullPath);
+				out = new FileOutputStream(fullPath);
+				out.write(data, 0, data.length);
+			} catch ( IOException e) {
+				e.printStackTrace(System.out);
+			}
+			finally {
+				out.flush();
+				out.close();
+			}
+		}
+
 	private void writeProperties(byte[] properties, Integer size) throws IOException {
 		String fullPath;
 		FileOutputStream out = null;
