@@ -1,0 +1,462 @@
+<export><workspace name="Flexrep-config-workspace"><query name="Create FlexRep DBs" focus="false" active="true" mode="xquery">(:
+*******
+create databases, app servers for Flexrep client testing
+*******
+:)
+
+xquery version "1.0-ml";
+
+import module namespace admin = "http://marklogic.com/xdmp/admin" at "/MarkLogic/admin.xqy";
+import module "http://marklogic.com/xdmp/security" at "/MarkLogic/security.xqy";
+
+declare namespace l = "local";
+declare namespace db = "http://marklogic.com/xdmp/database";
+
+declare function l:log($is) {
+    xdmp:log(text{"    DB setup: " ,$is})
+};
+
+declare function l:eval($num,$message,$utils as xs:string,$query) {
+
+    let $log := text{' let $log := xdmp:log("    ----',$num,'. ',$message,' ---") '}
+    let $done := text{'    Done ',$num, '. ', $message }
+    let $queryString := text{
+'xquery version "1.0-ml";
+',$utils, $log ,$query, 'return "', $done, '"'}
+    return
+    xdmp:eval($queryString)
+
+};
+
+(: create a new forest, new db and attach them.  Hardcodes "Schema" and "Security" DBs :)
+declare function l:create-db-with-forest($database-name, $forest-names as xs:string*) {
+    let $log := xdmp:log(text{"l:create-db-with-forest -- ",$database-name," ",$forest-names})
+    let $config := admin:get-configuration()
+    let $_ := for $forest-name in $forest-names
+        return
+      try {xdmp:set( $config, admin:forest-create($config, $forest-name, xdmp:host(), ()))}
+      catch ($e) {(xdmp:log(text{"    skipping forest create ",$forest-name," (may already exist)"}), $config)}
+
+    let $config :=
+      try {admin:database-create($config, $database-name,
+                     xdmp:database("Security"), xdmp:database("Schemas")) }
+      catch ($e) {(xdmp:log(text{"    skipping db create ",$database-name," (may already exist)"}), $config)}
+    let $save := admin:save-configuration($config)
+
+    let $log := l:log(("db=",xdmp:database($database-name)))
+    let $log := l:log(("forest=",xdmp:forest($forest-names)))
+
+    let $_ := for $forest-name in $forest-names
+        return
+      try { xdmp:set($config, admin:database-attach-forest(
+            $config,
+            xdmp:database($database-name), xdmp:forest($forest-name)) )}
+      catch ($e) {(xdmp:log("    skipping forest attach (may already be attacehd)"), $config)}
+    let $save := admin:save-configuration($config)
+
+    return ()
+};
+(: create a new forest, new db and attach them.  Hardcodes "Schema" and "Security" DBs :)
+declare function l:create-db-with-forest($database-name, $forest-names as xs:string*,$forest-location as xs:string?) {
+    let $log := xdmp:log(text{"l:create-db-with-forest -- ",$database-name," ",$forest-names})
+    let $config := admin:get-configuration()
+    let $_ := for $forest-name in $forest-names
+        return
+      try {xdmp:set( $config, admin:forest-create($config, $forest-name, xdmp:host(), $forest-location))}
+      catch ($e) {(xdmp:log(text{"    skipping forest create ",$forest-name," (may already exist)"}), $config)}
+
+    let $config :=
+      try {admin:database-create($config, $database-name,
+                     xdmp:database("Security"), xdmp:database("Schemas")) }
+      catch ($e) {(xdmp:log(text{"    skipping db create ",$database-name," (may already exist)"}), $config)}
+    let $save := admin:save-configuration($config)
+
+    let $log := l:log(("db=",xdmp:database($database-name)))
+    let $log := l:log(("forest=",xdmp:forest($forest-names)))
+
+    let $_ := for $forest-name in $forest-names
+        return
+      try { xdmp:set($config, admin:database-attach-forest(
+            $config,
+            xdmp:database($database-name), xdmp:forest($forest-name)) )}
+      catch ($e) {(xdmp:log("    skipping forest attach (may already be attacehd)"), $config)}
+    let $save := admin:save-configuration($config)
+
+    return ()
+};
+
+declare function l:assign-trigger-db($config, $dbid,$triggers-dbid) {
+    let $log := xdmp:log(text{"l:assign-trigger-db : ",$dbid," ",$triggers-dbid})
+    let $config :=
+      try {admin:database-set-triggers-database(
+            $config,
+            $dbid,
+            $triggers-dbid)}
+      catch ($e) {(xdmp:log("not setting Triggers database (may already be set)"), $config)}
+    let $save := admin:save-configuration($config)
+    return ()
+};
+
+
+
+
+declare function l:getSecUserId($user_name, $option) as xs:unsignedLong {
+    xdmp:eval(fn:concat('
+    xquery version "1.0-ml";
+    import module "http://marklogic.com/xdmp/security" at "/MarkLogic/security.xqy";
+    sec:uid-for-name("',$user_name,'")'), (), $option)
+};
+
+declare function l:get-security-priv($action, $kind) as element(sec:privilege)? {
+    xdmp:eval('
+        xquery version "1.0-ml";
+        import module "http://marklogic.com/xdmp/security" at "/MarkLogic/security.xqy";
+        declare variable $action external;
+        declare variable $kind external;
+        sec:get-privilege($action, $kind)
+    ', (xs:QName("action"), $action, xs:QName("kind"), $kind),
+    &lt;options xmlns="xdmp:eval"&gt;
+        &lt;database&gt;{xdmp:security-database()}&lt;/database&gt;
+    &lt;/options&gt;)
+};
+
+declare function l:set-server-privilege($config, $appserver-id, $action, $kind) {
+    try {
+        let $priv := l:get-security-priv($action,$kind)
+        let $_ := xdmp:log(xdmp:quote($priv),"debug")
+        return
+            admin:appserver-set-privilege(
+                $config,
+                $appserver-id,
+                $priv/sec:privilege-id
+            ) 
+    } catch ($e) {
+        xdmp:log("priv setting did not work","error"),
+        xdmp:log(xdmp:quote($e),"error"),
+        $config
+    }
+};
+
+
+declare function l:create-amp(
+    $local-name as xs:string,
+    $namespace as xs:string,
+    $document-uri as xs:string,
+    $role-names as xs:string*,
+    $database as xs:unsignedLong,
+    $sec_option
+)   {
+    let $log := xdmp:log(text{"   Creating amp: ",$local-name})
+
+    let $roles-string := fn:concat('("',fn:string-join($role-names, '","' ),'")')
+
+    return
+    try {
+    xdmp:eval(fn:concat('
+xquery version "1.0-ml";
+import module namespace sec="http://marklogic.com/xdmp/security" at "/MarkLogic/security.xqy";
+sec:create-amp(
+    "',$namespace,'",
+    "',$local-name,'",
+    "',$document-uri,'",
+    ',$database,',
+     ',$roles-string,')
+    '), (), $sec_option)
+    } catch($e) { xdmp:log(text{"   Amp creation failed (may already exist): ",$local-name}) }
+};
+
+declare function l:remove-amp(
+    $local-name as xs:string,
+    $namespace as xs:string,
+    $document-uri as xs:string,
+    $database as xs:unsignedLong,
+    $sec_option
+)    {
+    let $log := xdmp:log(text{"   Remove amp: ",$local-name})
+    return
+    try {
+    xdmp:eval(fn:concat('
+xquery version "1.0-ml";
+import module namespace sec="http://marklogic.com/xdmp/security" at "/MarkLogic/security.xqy";
+sec:remove-amp(
+    "',$namespace,'",
+    "',$local-name,'",
+    "',$document-uri,'",
+    ',$database,')
+    '), (), $sec_option)
+     } catch($e) { xdmp:log(text{"   Amp remove failed (may not exist): ",$local-name}) }
+};
+
+
+declare function l:setup-content-db($db-name) {
+    let $content-dbid := xdmp:database($db-name)
+    let $config := admin:get-configuration()
+    let $config := admin:database-set-uri-lexicon($config, $content-dbid, true())
+ 	 let $config := admin:database-set-collection-lexicon($config, $content-dbid, true())
+       
+    (:
+    let $config := admin:database-set-directory-creation($config, $content-dbid, "manual")
+    let $config := admin:database-set-maintain-last-modified($config, $content-dbid, fn:false())
+    :)
+    let $save :=  admin:save-configuration($config)
+    return ()
+};
+
+declare function l:setup-modules-db($db-name) {
+    let $modules-dbid := xdmp:database($db-name)
+    let $config := admin:get-configuration()
+    let $config := admin:database-set-uri-lexicon($config, $modules-dbid, true())
+     
+    let $save :=  admin:save-configuration($config)
+    return ()
+};
+
+declare function l:setup() {
+  
+  (: ******************************************************** :)
+  (: *********     PARAMETERS TO CONFIGURE     ************** :)
+  (: ******************************************************** :)
+
+    let $port-number as xs:integer := 8401
+    let $master-db-name := "Master"
+    let $replica-db-name := "Replica"
+    
+    for $db-name at $db-index in ($master-db-name, $replica-db-name)[1 to 2]
+    let $content-database-name := $db-name
+    let $modules-database-name := concat($db-name, "-Modules")
+    let $triggers-database-name := concat($db-name, "-Triggers")
+
+    let $content-forest-names := ($content-database-name)
+    let $modules-forest-name := $modules-database-name
+    let $triggers-forest-name := $triggers-database-name
+
+    let $app-xdbc-server-port as xs:integer := $port-number + 0
+    let $app-xdbc-server-name := concat($db-name, "-XDBC")
+    let $app-http-server-port as xs:integer := $port-number + 1
+    let $app-http-server-name := concat($db-name, "-HTTP")
+    
+    return (
+  
+    "START DEPLOY DATABASES ",
+    xdmp:log(""),
+    xdmp:log("START DEPLOY DATABASES"),
+
+    "1. Create Databases",
+    let $log := xdmp:log("1. Create Databases")
+    let $CREATE := l:create-db-with-forest($content-database-name, $content-forest-names, $forest-location)
+    let $CREATE := l:create-db-with-forest($modules-database-name, $modules-forest-name, $forest-location)
+    let $CREATE := l:create-db-with-forest($triggers-database-name, $triggers-forest-name, $forest-location)
+    return (),
+
+    "2. Configure Content Database",
+    let $log := xdmp:log("2. Configure Content Database")
+    let $CONFIG-AND-SAVE := l:setup-content-db($content-database-name)
+    return (),
+    
+    "2b. Configure Modules Database",
+    let $log := xdmp:log("2b. Configure Modules Database")
+    let $CONFIG-AND-SAVE := (: l:setup-content-db($modules-database-name) :) l:setup-modules-db($modules-database-name)
+    return (),   
+    
+    "2c. Configure Triggers Database",
+    let $log := xdmp:log("2c. Configure Triggers Database")
+    
+    let $config := admin:get-configuration()
+    let $dbid := xdmp:database($content-database-name)
+    let $triggers-dbid := xdmp:database($triggers-database-name)
+    let $CONFIG-AND-SAVE := (: l:setup-content-db($triggers-database-name) :) 
+      l:assign-trigger-db($config, $dbid,$triggers-dbid)
+    return (), 
+        
+    "3a. Create XDBC/HTTP Servers",
+    let $server-type := ("XDBC", "HTTP")[$db-index]
+    let $log := xdmp:log(concat("3a. Create Application ", $server-type, " Server"))
+    let $config := admin:get-configuration()
+    let $group-id := admin:group-get-id($config, "Default")
+    let $config := admin:get-configuration()
+    let $content-dbid := xdmp:database($content-database-name)
+    let $modules-dbid := xdmp:database($modules-database-name)
+    let $config :=
+      try {
+          if($server-type eq "XDBC") then
+            admin:xdbc-server-create($config, $group-id, $app-xdbc-server-name, "/", $app-xdbc-server-port, $modules-dbid, $content-dbid)
+          else
+            admin:http-server-create($config, $group-id, $app-http-server-name, "FlexRep", $app-http-server-port, "file-system", $content-dbid)
+        }
+      catch ($e) {(xdmp:log(concat("skipping ", $server-type, " server add (may already exist)")), $config)}
+    let $save := admin:save-configuration($config)
+    return (),
+
+    "3b. Configure App XDBC Server",
+    let $log := xdmp:log("3b. Configure App XDBC Server")
+    let $config := admin:get-configuration()
+    let $xdbc-id := admin:appserver-get-id($config, admin:group-get-id($config, "Default"), ($app-xdbc-server-name,$app-http-server-name)[$db-index])
+    let $admin-uid := xdmp:user("admin")
+    let $config := admin:appserver-set-authentication($config, $xdbc-id, "digest")  
+    let $save := admin:save-configuration($config)
+    return ()
+	
+  (:
+    "4. Configure Host Settings",
+    let $log := xdmp:log("4. Configure Host Settings")
+    let $config := admin:get-configuration()
+    let $group-id := admin:group-get-id($config, "Default")  (: Default is the group for all hosts: they share the Default group settings :)
+    let $config := admin:group-set-keep-log-files($config, $group-id, 7)
+    let $config := admin:group-set-file-log-level($config, $group-id, "debug")
+    let $save := admin:save-configuration($config)
+    return ()
+   :)
+  
+  )
+};
+
+
+
+
+    
+    (: Set to location of forests :)
+    declare variable $forest-location := (); (:  fn:error(xs:QName("NO_FOREST_LOC"), "You must change this script to specify a directory for forests"); :) (: e.g. "F:\MarkLogic\" or () for default directory :)
+(: ******************************************************** :)
+
+declare variable $sec_eval_option :=
+   &lt;options xmlns="xdmp:eval"&gt;
+     &lt;database&gt;{xdmp:security-database()}&lt;/database&gt;
+   &lt;/options&gt;;
+
+(
+l:setup()
+,
+fn:concat(
+'
+')
+)
+
+
+
+</query><query name="CPF1 - insert pipelines" focus="false" active="true" mode="xquery">(: run on the triggers DB used by the "Master" db :)
+
+xquery version "1.0-ml";
+import module namespace dom = "http://marklogic.com/cpf/domains" 
+  at "/MarkLogic/cpf/domains.xqy";
+import module namespace p = "http://marklogic.com/cpf/pipelines" 
+  at "/MarkLogic/cpf/pipelines.xqy"; 
+let $flexrep-pipeline :=
+  xdmp:document-get("Installer/flexrep/flexrep-pipeline.xml")
+let $status-pipeline := 
+  xdmp:document-get("Installer/cpf/status-pipeline.xml")
+return (
+  p:insert($flexrep-pipeline),
+  p:insert($status-pipeline) )</query><query name="CPF2 - Create Domain" focus="false" active="true" mode="xquery">(: run on the triggers DB used by the "Master" db :)
+
+xquery version "1.0-ml"; 
+import module namespace dom = "http://marklogic.com/cpf/domains" 
+  at "/MarkLogic/cpf/domains.xqy";
+import module namespace p = "http://marklogic.com/cpf/pipelines" 
+  at "/MarkLogic/cpf/pipelines.xqy";
+dom:create(
+    "Replicated Content2",
+    "Handle replicated documents", 
+    dom:domain-scope( 
+       "directory", 
+       "/", 
+       "infinity"),
+    dom:evaluation-context(
+       xdmp:database("Master-Modules"), 
+       "/" ),
+    (p:get("Status Change Handling")/p:pipeline-id,
+     p:get("Flexible Replication")/p:pipeline-id),
+    (xdmp:permission('app-user', 'read'), 
+     xdmp:permission('app-user', 'execute') )
+)
+</query><query name="CPF3 - restart trigger" focus="false" active="true" mode="xquery">(: run on the triggers DB used by the "Master" db :)
+
+xquery version "1.0-ml";
+import module namespace dom = "http://marklogic.com/cpf/domains" 
+  at "/MarkLogic/cpf/domains.xqy";
+(: only create a single restart trigger per triggers database as
+   it applies to all domains :)
+dom:configuration-create( 
+  "CPFuser", 
+  dom:evaluation-context( xdmp:database("Master-Modules"), "/" ),
+  fn:data(dom:get("Replicated Content")/dom:domain-id), 
+  (xdmp:permission('app-user', 'read'), 
+   xdmp:permission('app-user', 'execute') ) )
+   
+   (: 3793926808195785151 :)</query><query name="FlexRep1 - Config Master" focus="false" active="true" mode="xquery">(: run on the "Master" DB :)
+
+xquery version "1.0-ml"; 
+import module namespace flexrep =
+  "http://marklogic.com/xdmp/flexible-replication" 
+  at "/MarkLogic/flexrep.xqy";
+import module namespace admin = "http://marklogic.com/xdmp/admin"
+  at "/MarkLogic/admin.xqy";
+let $config := admin:get-configuration() 
+let $config := flexrep:configure-database(
+  $config,
+  xdmp:database("Master")) 
+return admin:save-configuration($config)</query><query name="FlexRep2" focus="false" active="true" mode="xquery">(: run on the "Master" DB :)
+
+xquery version "1.0-ml";
+import module namespace flexrep =
+  "http://marklogic.com/xdmp/flexible-replication" 
+    at "/MarkLogic/flexrep.xqy";
+(: Obtain the id of the replicated CPF domain from the 
+   Triggers database. :)
+let $domain:= xdmp:eval(
+    'xquery version "1.0-ml";
+    import module namespace dom = "http://marklogic.com/cpf/domains" 
+      at "/MarkLogic/cpf/domains.xqy";
+    fn:data(dom:get( "Replicated Content" )//dom:domain-id)',
+    (),
+    &lt;options xmlns="xdmp:eval"&gt;
+      &lt;database&gt;{xdmp:database("flexrep-Master2-Triggers")}&lt;/database&gt;
+    &lt;/options&gt;)
+(: Create a replication configuration for the Replicated 
+   Content domain. :)
+let $cfg := flexrep:configuration-create($domain)
+(: Insert the replication configuration element into the database. :)
+return flexrep:configuration-insert($cfg) </query><query name="FlexRep3" focus="true" active="true" mode="xquery">(: run on the "Master" DB :)
+
+xquery version "1.0-ml";
+import module namespace flexrep =
+  "http://marklogic.com/xdmp/flexible-replication" 
+    at "/MarkLogic/flexrep.xqy";
+(: Obtain the id of the replicated CPF domain from the 
+   Triggers database. :)
+let $domain:= xdmp:eval(
+    'xquery version "1.0-ml";
+    import module namespace dom = "http://marklogic.com/cpf/domains" 
+      at "/MarkLogic/cpf/domains.xqy";
+    fn:data(dom:get( "Replicated Content" )//dom:domain-id)',
+    (),
+    &lt;options xmlns="xdmp:eval"&gt;
+      &lt;database&gt;{xdmp:database("Master-Triggers")}&lt;/database&gt;
+    &lt;/options&gt;)
+(: Obtain the replication configuration. :)
+let $cfg := flexrep:configuration-get($domain, fn:true()) 
+(: Specify the HTTP options for the replication target. :)
+let $http-options := 
+  &lt;flexrep:http-options     xmlns:flexrep="http://marklogic.com/xdmp/flexible-replication"&gt;
+    &lt;http:authentication xmlns:http="xdmp:http"&gt;
+      &lt;http:username&gt;admin&lt;/http:username&gt;
+      &lt;http:password&gt;admin&lt;/http:password&gt;
+    &lt;/http:authentication&gt;
+    &lt;http:client-cert xmlns:http="xdmp:http"/&gt;
+    &lt;http:client-key xmlns:http="xdmp:http"/&gt;
+    &lt;http:pass-phrase xmlns:http="xdmp:http"/&gt;
+  &lt;/flexrep:http-options&gt;
+(: Create the replication target. :)
+let $cfg := flexrep:target-create(
+  $cfg,
+  "flexrep-client-target",
+  "http://localhost:8080/",
+  60,
+  300,
+  10,
+  fn:true(),
+  $http-options,
+  fn:false(),
+  (),
+  () ) 
+(: Insert the changes to the replication configuration. :)
+return flexrep:configuration-insert($cfg) </query></workspace></export>
