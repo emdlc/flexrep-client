@@ -12,3 +12,8 @@ dependencies {
     providedCompile 'org.apache.httpcomponents:httpclient:4.5.1'
     testCompile 'junit:junit:4.12'
 }
+
+task deployToTomcat(type: Copy) {
+    from war.archivePath
+    into "/opt/tomcat-8.0.20/webapps"
+}
