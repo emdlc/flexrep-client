@@ -23,6 +23,7 @@ import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.DefaultHttpClient;
+import org.junit.Before;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
@@ -33,11 +34,13 @@ import com.marklogic.xcc.ContentCreateOptions;
 import com.marklogic.xcc.ContentFactory;
 
 public class FileSystemApplyServletTest {
+	
+	private static Boolean deleteFilesWhenDone = false;  // make true to not keep test files around
 
 	private static final Logger logger = Logger
 			.getLogger(FileSystemApplyServletTest.class.getName());
 
-	private static final String FLEX_REP_ROOT = "/tmp";
+	private static final String FLEX_REP_ROOT = "/flexrep-testing";
 	
 	private static final String NON_CHUNKING_BINARY_SMALL = "/canyon-single-small.jpg";
 	private static final String NON_CHUNKING_BINARY_0_97MB = "/canyon-single-0.97MB.jpg";
@@ -53,10 +56,12 @@ public class FileSystemApplyServletTest {
 	//private static final String XML_FILENAME_URI = FLEX_REP_ROOT + XML_FILENAME;
 	
 	private static final String multi_XML_URIs[] = {XML_FILENAME2, XML_FILENAME3, XML_FILENAME4};
+	private static final String all_file_URIs[] = {XML_FILENAME1, XML_FILENAME2, XML_FILENAME3, XML_FILENAME4,
+		NON_CHUNKING_BINARY_SMALL, NON_CHUNKING_BINARY_0_97MB, NON_CHUNKING_BINARY_1_2MB};
 
 	private static Properties testingProperties = null;
 
-	private static XccHelper xccHelper = null;
+	private static XccTestHelper xccHelper = null;
 	
 	private static NamespaceContext CONTEXT = new NamespaceContextMap("doc", "xdmp:document-load", 
 			"flexrep", "http://marklogic.com/xdmp/flexible-replication", 
@@ -73,12 +78,36 @@ public class FileSystemApplyServletTest {
 			logger.info("url="
 					+ testingProperties.getProperty("ml.flexrep.xcc.url"));
 			if (xccHelper == null)
-				xccHelper = new XccHelper(
+				xccHelper = new XccTestHelper(
 						testingProperties.getProperty("ml.flexrep.xcc.url"));
 		} catch (IOException | XccHelperException e) {
 			e.printStackTrace();
 		}
 	}
+	
+    @Before  // setup
+    public void before() throws Exception {
+    	for(int i=0; i<all_file_URIs.length; i++) {
+    		for(int j=0; j<2; j++) {
+    			// do each twice.  Once for file and once for metadata
+    			String filename = null;
+    			if(j==0) {
+    				filename =  all_file_URIs[i];
+    			} else {
+    				filename =  all_file_URIs[i] + ".metadata";
+    			}
+				String fileSystemRoot = testingProperties.getProperty("tomcat.replication.path");
+				String filepath = fileSystemRoot + FLEX_REP_ROOT + filename;
+				logger.info("Delete file: "+filepath);
+				File file = new File(filepath);
+				//Assert.assertTrue("XML file not found on file system", xmlFile.exists());
+				if(file.exists() && deleteFilesWhenDone) {
+					file.delete();
+				}
+    		}
+    	}
+    }
+
 
 	@Test
 	public void testNonChunkingBinaryReplication() {

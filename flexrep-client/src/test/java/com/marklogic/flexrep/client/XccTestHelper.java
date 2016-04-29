@@ -12,12 +12,12 @@ import com.marklogic.xcc.Session;
 import com.marklogic.xcc.exceptions.RequestException;
 import com.marklogic.xcc.exceptions.XccConfigException;
 
-public class XccHelper {
+public class XccTestHelper {
 
 	private ContentSource contentSource = null;
 	private String xccUrl;
 
-	public XccHelper(String xccUrl) throws XccHelperException {
+	public XccTestHelper(String xccUrl) throws XccHelperException {
 		this.xccUrl = xccUrl;
 		try {
 			contentSource = ContentSourceFactory.newContentSource(new URI(

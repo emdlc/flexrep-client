@@ -6,8 +6,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.StringReader;
-import java.util.Properties;
 
+import javax.naming.Context;
+import javax.naming.InitialContext;
+import javax.naming.NamingException;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.MultipartConfig;
 import javax.servlet.annotation.WebServlet;
@@ -30,7 +32,9 @@ maxFileSize = 1024 * 1024 * 10, // 10MB
 maxRequestSize = 1024 * 1024 * 50) // 50MB
 public class ApplyServlet extends HttpServlet {
 	private static final long serialVersionUID = 1L;
-	private static final boolean isWindowsClient = false;
+	private boolean isWindowsClient = false;
+	private String xccURL = null;
+	private String flexrepRootDir = null;
 
 	private String currentDesignation = null;
 	private String currentContentType = null;
@@ -38,6 +42,8 @@ public class ApplyServlet extends HttpServlet {
 	private boolean isProcessingContent = false;
 	private String currentUpdateFormat = null;
 	private String currentUri = null;
+	
+	
 
 	private static XccHelper xccHelper = null;
 	
@@ -50,15 +56,35 @@ public class ApplyServlet extends HttpServlet {
 	 */
 	public ApplyServlet() {
 		super();
-		// TODO Auto-generated constructor stub
-		System.out.println("ApplyServlet()");
+		//System.out.println("ApplyServlet()");
+		
+		Context env;
+		xccURL = null;
+		flexrepRootDir = null;
+		
+		try {
+			env = (Context)new InitialContext().lookup("java:comp/env");
+			// Get a single value
+			xccURL = (String)env.lookup("ml.flexrep.xcc.url");
+			flexrepRootDir = (String)env.lookup("flexrep.root.directory");
+			if(flexrepRootDir.indexOf("\\") != -1) {
+				isWindowsClient = true;
+			} else {
+				isWindowsClient = false;
+			}
+			
+			System.out.println("ml-url="+xccURL);
+			System.out.println("flexrepRootDir="+flexrepRootDir);
+			System.out.println("isWindowsClient="+isWindowsClient);
+		} catch (NamingException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
 		
 		if (xccHelper == null)
 			try {
-				//TODO: need to make this configurable
-				xccHelper = new XccHelper("xcc://admin:admin@localhost:9001/Master");
+				xccHelper = new XccHelper(xccURL);
 			} catch (Exception e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 	}
@@ -70,7 +96,7 @@ public class ApplyServlet extends HttpServlet {
 	protected void doGet(HttpServletRequest request,
 			HttpServletResponse response) throws ServletException, IOException {
 		OutputStream out = response.getOutputStream();
-		out.write("test this222".getBytes("UTF-8"));
+		out.write("standard response to get request".getBytes("UTF-8"));
 		out.flush();
 	}
 
@@ -97,11 +123,6 @@ public class ApplyServlet extends HttpServlet {
 		String targetName = request.getHeader("X-Flexrep-Target-Name");
 
 		try {
-//			 BufferedReader bodyReader = request.get.getReader();
-//			 StringWriter writer = new StringWriter();
-//			 IOUtils.copy(bodyReader, writer);
-//			 System.out.println("body="+writer.toString());
-
 			System.out.println("currentUri=" + currentUri);
 			System.out.println("boundary=" + boundary);
 			System.out.println("domainId=" + domainId);
@@ -129,16 +150,15 @@ public class ApplyServlet extends HttpServlet {
 								if(isWindowsClient) {
 									out = new FileOutputStream("c:\\Temp\\out.xlsx");
 								} else {
-									out = new FileOutputStream("/temp/out.xlsx");
+									out = new FileOutputStream("/tmp/out.xlsx");
 								}
 							}
 							else {
 								String fullPath;
 								if(isWindowsClient) {
-									fullPath = "c:\\Temp\\"
-											+ formatUri(currentUri);									
+									fullPath = flexrepRootDir + formatUri(currentUri);									
 								} else {
-									fullPath = "/temp/" + formatUri(currentUri);
+									fullPath = flexrepRootDir + formatUri(currentUri);
 								}
 
 								createDirectory(fullPath);
@@ -151,12 +171,12 @@ public class ApplyServlet extends HttpServlet {
 					line = new StringBuilder();
 				}
 				if (reading) {
-
+					// do nothing
 				}
 			}
 			
 			if(currentUpdateFormat.equals("binary")) {
-				System.out.println("writeBinary: " + currentUri);
+				//System.out.println("writeBinary: " + currentUri);
 				writeBinary(currentUri);
 			}
 			
@@ -170,7 +190,7 @@ public class ApplyServlet extends HttpServlet {
 		}
 	}
 
-	private static String formatUri(String currentUri) {
+	private String formatUri(String currentUri) {
 		if(isWindowsClient) {
 			return currentUri.replaceAll("/", "\\\\");
 		} else {
@@ -251,10 +271,9 @@ public class ApplyServlet extends HttpServlet {
 			String fullPath;
 			FileOutputStream out = null;
 			if(isWindowsClient) {
-				fullPath = "c:\\Temp\\"
-						+ formatUri(binaryURI);									
+				fullPath = flexrepRootDir + formatUri(binaryURI);									
 			} else {
-				fullPath = "/temp/" + formatUri(binaryURI);
+				fullPath = flexrepRootDir + formatUri(binaryURI);
 			}
 			try {
 				createDirectory(fullPath);
@@ -273,10 +292,9 @@ public class ApplyServlet extends HttpServlet {
 		String fullPath;
 		FileOutputStream out = null;
 		if(isWindowsClient) {
-			fullPath = "c:\\Temp\\"
-					+ formatUri(currentUri);									
+			fullPath = flexrepRootDir + formatUri(currentUri);									
 		} else {
-			fullPath = "/temp/" + formatUri(currentUri) + ".metadata";
+			fullPath = flexrepRootDir + formatUri(currentUri) + ".metadata";
 		}
 		try {
 			createDirectory(fullPath);
@@ -298,7 +316,7 @@ public class ApplyServlet extends HttpServlet {
 		} else {
 			lastIndexString = "/";
 		}
-		System.out.println("Create Directory Path:"+fullPath);
+		//System.out.println("Create Directory Path:"+fullPath);
 		File file = new File(fullPath.substring(0,
 				fullPath.lastIndexOf(lastIndexString)));
 		file.mkdirs();

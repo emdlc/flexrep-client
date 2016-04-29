@@ -36,6 +36,7 @@ public class ApplyBinaryChunkServlet extends HttpServlet {
 	private boolean isProcessingContent = false;
 	private String currentUpdateFormat = null;
 	private String currentUri = null;
+	//private String properties = null;
 	
 	private static NamespaceContext CONTEXT = new NamespaceContextMap(
 	        "doc", "xdmp:document-load",
@@ -47,6 +48,7 @@ public class ApplyBinaryChunkServlet extends HttpServlet {
 	 */
 	public ApplyBinaryChunkServlet() {
 		// TODO Auto-generated constructor stub
+		System.out.println("ApplyBinaryChunkServlet()");
 	}
 
 	/**
@@ -66,7 +68,7 @@ public class ApplyBinaryChunkServlet extends HttpServlet {
 	 */
 	protected void doPost(HttpServletRequest request,
 			HttpServletResponse response) throws ServletException, IOException {
-		FileOutputStream out = null;
+		FileOutputStream out = null;	
 		String boundary = null;
 		String contentType = request.getHeader("content-type");
 		for (String f : contentType.split(" *; *")) {
@@ -145,6 +147,8 @@ public class ApplyBinaryChunkServlet extends HttpServlet {
 			xpath.setNamespaceContext(CONTEXT);
 			currentUpdateFormat = xpath.compile("/flexrep:update/doc:format").evaluate(new InputSource(new StringReader(xml)));
 			currentUri = xpath.compile("/flexrep:update/doc:uri").evaluate(new InputSource(new StringReader(xml)));
+			//properties = xpath.compile("/prop:properties").evaluate(new InputSource(new StringReader(xml)));
+			//System.out.println("Properties="+ properties);
 		} catch (Exception e) {
 			e.printStackTrace(System.out);
 		}

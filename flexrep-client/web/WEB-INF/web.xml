@@ -10,17 +10,17 @@
     <welcome-file>default.jsp</welcome-file>
   </welcome-file-list>
   
-  <!-- servlet>
-        <servlet-name>replicate</servlet-name>
-        <servlet-class>org.apache.jasper.servlet.JspServlet</servlet-class>
-        <init-param>
-            <param-name>fork</param-name>
-            <param-value>false</param-value>
-        </init-param>
-        <init-param>
-            <param-name>xpoweredBy</param-name>
-            <param-value>false</param-value>
-        </init-param>
-        <load-on-startup>3</load-on-startup>
-    </servlet-->
+<env-entry> 
+    <env-entry-name>ml.flexrep.xcc.url</env-entry-name>
+    <env-entry-type>java.lang.String</env-entry-type>
+    <env-entry-value>xcc://admin:admin@localhost:9001/Master</env-entry-value> 
+</env-entry>
+
+<env-entry> 
+    <env-entry-name>flexrep.root.directory</env-entry-name>
+    <env-entry-type>java.lang.String</env-entry-type>
+    <env-entry-value>/tmp/flexrep-target</env-entry-value>
+    <!--  <env-entry-value>C:\temp\flexrep-target</env-entry-value> --> 
+</env-entry>
+
 </web-app>
